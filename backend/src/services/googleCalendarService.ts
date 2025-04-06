@@ -1,8 +1,28 @@
 import { google, calendar_v3 } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
 
 dotenv.config();
+
+// Path to credentials file
+const CREDENTIALS_PATH = path.join(__dirname, '../config/credentials/google-calendar-credentials.json');
+
+// Load credentials from file
+let credentials: any;
+try {
+  const credentialsFile = fs.readFileSync(CREDENTIALS_PATH, 'utf8');
+  credentials = JSON.parse(credentialsFile);
+} catch (error) {
+  console.error('Error loading Google Calendar credentials:', error);
+  // Fallback to environment variables if file not found
+  credentials = {
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    client_secret: process.env.GOOGLE_CLIENT_SECRET,
+    redirect_uris: [process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/auth/google/callback']
+  };
+}
 
 // Google Calendar API credentials
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -15,9 +35,9 @@ const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 // Create OAuth2 client
 const createOAuth2Client = (): OAuth2Client => {
   return new google.auth.OAuth2(
-    CLIENT_ID,
-    CLIENT_SECRET,
-    REDIRECT_URI
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI
   );
 };
 
