@@ -1,3 +1,4 @@
+// backend/src/controllers/eventController.ts
 import { Request, Response } from 'express';
 import { 
   getAllEvents, 
@@ -8,7 +9,7 @@ import {
 } from '../models/Event';
 
 // Get all events
-export const getEvents = (req: Request, res: Response) => {
+export const getEvents = (req: Request, res: Response): void => {
   try {
     const events = getAllEvents();
     res.status(200).json(events);
@@ -19,13 +20,14 @@ export const getEvents = (req: Request, res: Response) => {
 };
 
 // Get event by ID
-export const getEvent = (req: Request, res: Response) => {
+export const getEvent = (req: Request, res: Response): void => {
   try {
     const { id } = req.params;
     const event = getEventById(id);
     
     if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
+      res.status(404).json({ message: 'Event not found' });
+      return;
     }
     
     res.status(200).json(event);
@@ -36,13 +38,14 @@ export const getEvent = (req: Request, res: Response) => {
 };
 
 // Create a new event
-export const createNewEvent = (req: Request, res: Response) => {
+export const createNewEvent = (req: Request, res: Response): void => {
   try {
     const { title, description, startTime, endTime, location, imageUrl } = req.body;
     
     // Basic validation
     if (!title || !description || !startTime || !endTime || !location) {
-      return res.status(400).json({ message: 'Missing required fields' });
+      res.status(400).json({ message: 'Missing required fields' });
+      return;
     }
     
     // In a real app, you would get the user ID from the authenticated user
@@ -66,7 +69,7 @@ export const createNewEvent = (req: Request, res: Response) => {
 };
 
 // Update an event
-export const updateExistingEvent = (req: Request, res: Response) => {
+export const updateExistingEvent = (req: Request, res: Response): void => {
   try {
     const { id } = req.params;
     const { title, description, startTime, endTime, location, imageUrl } = req.body;
@@ -81,7 +84,8 @@ export const updateExistingEvent = (req: Request, res: Response) => {
     });
     
     if (!updatedEvent) {
-      return res.status(404).json({ message: 'Event not found' });
+      res.status(404).json({ message: 'Event not found' });
+      return;
     }
     
     res.status(200).json(updatedEvent);
@@ -92,13 +96,14 @@ export const updateExistingEvent = (req: Request, res: Response) => {
 };
 
 // Delete an event
-export const deleteExistingEvent = (req: Request, res: Response) => {
+export const deleteExistingEvent = (req: Request, res: Response): void => {
   try {
     const { id } = req.params;
     const deleted = deleteEvent(id);
     
     if (!deleted) {
-      return res.status(404).json({ message: 'Event not found' });
+      res.status(404).json({ message: 'Event not found' });
+      return;
     }
     
     res.status(200).json({ message: 'Event deleted successfully' });

@@ -1,4 +1,5 @@
-import express from 'express';
+// backend/src/routes/eventRoutes.ts
+import express, { Router } from 'express';
 import {
   getEvents,
   getEvent,
@@ -7,7 +8,7 @@ import {
   deleteExistingEvent
 } from '../controllers/eventController';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Get all events
 router.get('/', getEvents);
