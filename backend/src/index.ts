@@ -1,8 +1,8 @@
-// backend/src/index.ts
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import eventRoutes from './routes/eventRoutes';
+import googleCalendarRoutes from './routes/googleCalendarRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -16,6 +16,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api/events', eventRoutes);
+app.use('/api/google-calendar', googleCalendarRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
