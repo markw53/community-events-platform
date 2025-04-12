@@ -1,29 +1,25 @@
-// backend/src/controllers/eventController.ts
+// src/controllers/eventController.ts
 import { Request, Response } from 'express';
-import { 
-  getAllEvents, 
-  getEventById, 
-  createEvent, 
-  updateEvent, 
-  deleteEvent 
-} from '../models/Event';
+import * as EventModel from '../models/Event';
+import * as UserModel from '../models/User';
 
 // Get all events
-export const getEvents = (req: Request, res: Response): void => {
+export const getEvents = async (req: Request, res: Response): Promise<void> => {
   try {
-    const events = getAllEvents();
+    const events = await EventModel.getAllEvents();
     res.status(200).json(events);
   } catch (error) {
-    console.error('Error fetching events:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ 
+      message: 'Error fetching events', 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
   }
 };
 
 // Get event by ID
-export const getEvent = (req: Request, res: Response): void => {
+export const getEventById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-    const event = getEventById(id);
+    const event = await EventModel.getEventById(req.params.id);
     
     if (!event) {
       res.status(404).json({ message: 'Event not found' });
@@ -32,83 +28,125 @@ export const getEvent = (req: Request, res: Response): void => {
     
     res.status(200).json(event);
   } catch (error) {
-    console.error('Error fetching event:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ 
+      message: 'Error fetching event', 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
   }
 };
 
-// Create a new event
-export const createNewEvent = (req: Request, res: Response): void => {
+// Create new event
+export const createEvent = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { title, description, startTime, endTime, location, imageUrl } = req.body;
+    const { title, description, startDate, endDate, location, category, imageUrl, capacity } = req.body;
     
-    // Basic validation
-    if (!title || !description || !startTime || !endTime || !location) {
-      res.status(400).json({ message: 'Missing required fields' });
-      return;
-    }
+    // Get user ID from auth middleware
+    const organizerId = req.body.userId;
     
-    // In a real app, you would get the user ID from the authenticated user
-    const createdBy = 'admin'; // Placeholder
-    
-    const newEvent = createEvent({
+    const newEvent = await EventModel.createEvent({
       title,
       description,
-      startTime,
-      endTime,
+      startDate,
+      endDate,
       location,
+      organizer: organizerId,
+      category,
       imageUrl,
-      createdBy
+      capacity,
+      attendees: []
     });
     
+    // Add event to user's created events
+    await UserModel.addCreatedEvent(organizerId, newEvent.id!);
+
     res.status(201).json(newEvent);
   } catch (error) {
-    console.error('Error creating event:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ 
+      message: 'Error creating event', 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
   }
 };
 
-// Update an event
-export const updateExistingEvent = (req: Request, res: Response): void => {
+// Update event
+export const updateEvent = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { title, description, startTime, endTime, location, imageUrl } = req.body;
+    const updates = req.body;
+    const userId = req.body.userId;
     
-    const updatedEvent = updateEvent(id, {
-      title,
-      description,
-      startTime,
-      endTime,
-      location,
-      imageUrl
-    });
+    // Get the event to check permissions
+    const event = await EventModel.getEventById(id);
     
-    if (!updatedEvent) {
+    if (!event) {
       res.status(404).json({ message: 'Event not found' });
       return;
     }
     
+    // Check if user is the organizer
+    if (event.organizer !== userId) {
+      res.status(403).json({ message: 'Not authorized to update this event' });
+      return;
+    }
+    
+    const updatedEvent = await EventModel.updateEvent(id, updates);
     res.status(200).json(updatedEvent);
   } catch (error) {
-    console.error('Error updating event:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ 
+      message: 'Error updating event', 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
   }
 };
 
-// Delete an event
-export const deleteExistingEvent = (req: Request, res: Response): void => {
+// Delete event
+export const deleteEvent = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const deleted = deleteEvent(id);
+    const userId = req.body.userId;
     
-    if (!deleted) {
+    // Get the event to check permissions
+    const event = await EventModel.getEventById(id);
+    
+    if (!event) {
       res.status(404).json({ message: 'Event not found' });
       return;
     }
+    
+    // Check if user is the organizer
+    if (event.organizer !== userId) {
+      res.status(403).json({ message: 'Not authorized to delete this event' });
+      return;
+    }
+    
+    await EventModel.deleteEvent(id);
     
     res.status(200).json({ message: 'Event deleted successfully' });
   } catch (error) {
-    console.error('Error deleting event:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ 
+      message: 'Error deleting event', 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
+  }
+};
+
+// Register for an event
+export const registerForEvent = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const userId = req.body.userId;
+    
+    // Register for the event
+    await EventModel.registerForEvent(id, userId);
+    
+    // Add event to user's attending events
+    await UserModel.addAttendingEvent(userId, id);
+    
+    res.status(200).json({ message: 'Successfully registered for event' });
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Error registering for event', 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
   }
 };

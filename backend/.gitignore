@@ -9,6 +9,7 @@
 .env.*
 !.env.example
 src/config/credentials/
+src/config/service-account.json
 
 # logs
 logs

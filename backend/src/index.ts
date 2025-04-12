@@ -1,10 +1,11 @@
+// src/index.ts or src/server.ts
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import eventRoutes from './routes/eventRoutes';
-import googleCalendarRoutes from './routes/googleCalendarRoutes';
+import userRoutes from './routes/userRoutes';
+import calendarRoutes from './routes/calendarRoutes';
 
-// Load environment variables
 dotenv.config();
 
 const app = express();
@@ -16,14 +17,14 @@ app.use(express.json());
 
 // Routes
 app.use('/api/events', eventRoutes);
-app.use('/api/google-calendar', googleCalendarRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/calendar', calendarRoutes);
 
-// Basic route
-app.get('/', (req, res) => {
-  res.send('Community Events API is running');
+// Health check route
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'Server is running' });
 });
 
-// Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

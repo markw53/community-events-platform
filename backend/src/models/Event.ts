@@ -1,97 +1,117 @@
-export interface Event {
-    id: string;
-    title: string;
-    description: string;
-    startTime: string;
-    endTime: string;
-    location: string;
-    imageUrl?: string;
-    createdBy: string;
-    createdAt: string;
-    updatedAt: string;
-  }
+// src/models/Event.ts
+import { firestore } from '../config/firebase-admin';
+import { DocumentData } from 'firebase-admin/firestore';
+
+export interface IEvent {
+  id?: string;
+  title: string;
+  description: string;
+  startDate: Date | string;
+  endDate: Date | string;
+  location: string;
+  organizer: string; // User ID
+  category: string;
+  imageUrl?: string;
+  capacity?: number;
+  attendees: string[]; // Array of User IDs
+  googleCalendarEventId?: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+const eventsCollection = firestore.collection('events');
+
+// Get all events
+export const getAllEvents = async (): Promise<IEvent[]> => {
+  const snapshot = await eventsCollection.get();
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  })) as IEvent[];
+};
+
+// Get event by ID
+export const getEventById = async (id: string): Promise<IEvent | null> => {
+  const doc = await eventsCollection.doc(id).get();
+  if (!doc.exists) return null;
   
-  // For now, we'll use an in-memory array to store events
-  // In a real application, you would use a database
-  let events: Event[] = [
-    {
-      id: '1',
-      title: 'Community Cleanup Day',
-      description: 'Join us for a day of cleaning up our local parks and streets. Bring gloves and comfortable shoes!',
-      startTime: '2023-12-15T09:00:00.000Z',
-      endTime: '2023-12-15T12:00:00.000Z',
-      location: 'Central Park',
-      imageUrl: 'https://images.unsplash.com/photo-1532996122724-e3c354a0b15b',
-      createdBy: 'admin',
-      createdAt: '2023-11-01T12:00:00.000Z',
-      updatedAt: '2023-11-01T12:00:00.000Z'
-    },
-    {
-      id: '2',
-      title: 'Farmers Market',
-      description: 'Weekly farmers market featuring local produce, crafts, and food vendors.',
-      startTime: '2023-12-16T08:00:00.000Z',
-      endTime: '2023-12-16T13:00:00.000Z',
-      location: 'Town Square',
-      imageUrl: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9',
-      createdBy: 'admin',
-      createdAt: '2023-11-02T10:00:00.000Z',
-      updatedAt: '2023-11-02T10:00:00.000Z'
-    },
-    {
-      id: '3',
-      title: 'Community Workshop: Basic Gardening',
-      description: 'Learn the basics of gardening and how to start your own vegetable garden at home.',
-      startTime: '2023-12-18T18:00:00.000Z',
-      endTime: '2023-12-18T20:00:00.000Z',
-      location: 'Community Center',
-      imageUrl: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae',
-      createdBy: 'admin',
-      createdAt: '2023-11-03T09:00:00.000Z',
-      updatedAt: '2023-11-03T09:00:00.000Z'
+  return {
+    id: doc.id,
+    ...doc.data()
+  } as IEvent;
+};
+
+// Create event
+export const createEvent = async (eventData: Omit<IEvent, 'id' | 'createdAt' | 'updatedAt'>): Promise<IEvent> => {
+  const now = new Date();
+  
+  const newEvent = {
+    ...eventData,
+    attendees: eventData.attendees || [],
+    createdAt: now,
+    updatedAt: now
+  };
+  
+  const docRef = await eventsCollection.add(newEvent);
+  const doc = await docRef.get();
+  
+  return {
+    id: doc.id,
+    ...doc.data()
+  } as IEvent;
+};
+
+// Update event
+export const updateEvent = async (id: string, eventData: Partial<IEvent>): Promise<IEvent | null> => {
+  const now = new Date();
+  
+  const updates = {
+    ...eventData,
+    updatedAt: now
+  };
+  
+  await eventsCollection.doc(id).update(updates);
+  
+  return getEventById(id);
+};
+
+// Delete event
+export const deleteEvent = async (id: string): Promise<boolean> => {
+  await eventsCollection.doc(id).delete();
+  return true;
+};
+
+// Register for event
+export const registerForEvent = async (eventId: string, userId: string): Promise<boolean> => {
+  const eventRef = eventsCollection.doc(eventId);
+  
+  // Use a transaction to ensure data consistency
+  await firestore.runTransaction(async (transaction) => {
+    const eventDoc = await transaction.get(eventRef);
+    
+    if (!eventDoc.exists) {
+      throw new Error('Event not found');
     }
-  ];
-  
-  // Event service functions
-  export const getAllEvents = (): Event[] => {
-    return events;
-  };
-  
-  export const getEventById = (id: string): Event | undefined => {
-    return events.find(event => event.id === id);
-  };
-  
-  export const createEvent = (eventData: Omit<Event, 'id' | 'createdAt' | 'updatedAt'>): Event => {
-    const newEvent: Event = {
-      ...eventData,
-      id: Date.now().toString(), // Simple ID generation
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
     
-    events.push(newEvent);
-    return newEvent;
-  };
-  
-  export const updateEvent = (id: string, eventData: Partial<Event>): Event | null => {
-    const index = events.findIndex(event => event.id === id);
+    const eventData = eventDoc.data() as DocumentData;
+    const attendees = eventData.attendees || [];
     
-    if (index === -1) {
-      return null;
+    // Check if user is already registered
+    if (attendees.includes(userId)) {
+      throw new Error('User already registered for this event');
     }
     
-    const updatedEvent: Event = {
-      ...events[index],
-      ...eventData,
-      updatedAt: new Date().toISOString()
-    };
+    // Check if event is at capacity
+    if (eventData.capacity && attendees.length >= eventData.capacity) {
+      throw new Error('Event is at full capacity');
+    }
     
-    events[index] = updatedEvent;
-    return updatedEvent;
-  };
+    // Add user to attendees
+    transaction.update(eventRef, {
+      attendees: [...attendees, userId],
+      updatedAt: new Date()
+    });
+  });
   
-  export const deleteEvent = (id: string): boolean => {
-    const initialLength = events.length;
-    events = events.filter(event => event.id !== id);
-    return events.length !== initialLength;
-  };
+  return true;
+};
