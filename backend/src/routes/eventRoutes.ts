@@ -2,7 +2,7 @@
 import express, { Router } from 'express';
 import {
   getEvents,
-  getEvent,
+  getEventById,
   createNewEvent,
   updateExistingEvent,
   deleteExistingEvent
@@ -14,7 +14,7 @@ const router: Router = express.Router();
 router.get('/', getEvents);
 
 // Get event by ID
-router.get('/:id', getEvent);
+router.get('/:id', getEventById);
 
 // Create a new event
 router.post('/', createNewEvent);

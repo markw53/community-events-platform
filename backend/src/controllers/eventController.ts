@@ -36,7 +36,7 @@ export const getEventById = async (req: Request, res: Response): Promise<void> =
 };
 
 // Create new event
-export const createEvent = async (req: Request, res: Response): Promise<void> => {
+export const createNewEvent = async (req: Request, res: Response): Promise<void> => {
   try {
     const { title, description, startDate, endDate, location, category, imageUrl, capacity } = req.body;
     
@@ -69,7 +69,7 @@ export const createEvent = async (req: Request, res: Response): Promise<void> =>
 };
 
 // Update event
-export const updateEvent = async (req: Request, res: Response): Promise<void> => {
+export const updateExistingEvent = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const updates = req.body;
@@ -100,7 +100,7 @@ export const updateEvent = async (req: Request, res: Response): Promise<void> =>
 };
 
 // Delete event
-export const deleteEvent = async (req: Request, res: Response): Promise<void> => {
+export const deleteExistingEvent = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const userId = req.body.userId;
