@@ -9,7 +9,7 @@ export interface IEvent {
   startDate: Date | string;
   endDate: Date | string;
   location: string;
-  organizer: string; // User ID
+  organiser: string; // User ID
   category: string;
   imageUrl?: string;
   capacity?: number;

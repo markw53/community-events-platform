@@ -42,7 +42,7 @@ export const createNewEvent = async (req: Request, res: Response): Promise<void>
     const { title, description, startDate, endDate, location, category, imageUrl, capacity } = req.body;
     
     // Get user ID from auth middleware
-    const organizerId = req.body.userId;
+    const organiserId = req.body.userId;
     
     const newEvent = await EventModel.createEvent({
       title,
@@ -50,7 +50,7 @@ export const createNewEvent = async (req: Request, res: Response): Promise<void>
       startDate,
       endDate,
       location,
-      organizer: organizerId,
+      organiser: organiserId,
       category,
       imageUrl,
       capacity,
@@ -58,7 +58,7 @@ export const createNewEvent = async (req: Request, res: Response): Promise<void>
     });
     
     // Add event to user's created events
-    await UserModel.addCreatedEvent(organizerId, newEvent.id!);
+    await UserModel.addCreatedEvent(organiserId, newEvent.id!);
 
     res.status(201).json(newEvent);
   } catch (error) {
@@ -85,7 +85,7 @@ export const updateExistingEvent = async (req: Request, res: Response): Promise<
     }
     
     // Check if user is the organizer
-    if (event.organizer !== userId) {
+    if (event.organiser !== userId) {
       res.status(403).json({ message: 'Not authorized to update this event' });
       return;
     }
@@ -127,7 +127,7 @@ export const deleteExistingEvent = async (req: Request, res: Response): Promise<
     }
     
     // Check if user is the organizer
-    if (event.organizer !== userId) {
+    if (event.organiser !== userId) {
       res.status(403).json({ message: 'Not authorized to delete this event' });
       return;
     }
