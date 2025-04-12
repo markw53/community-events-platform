@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import eventRoutes from './routes/eventRoutes';
 import userRoutes from './routes/userRoutes';
 import calendarRoutes from './routes/calendarRoutes';
+import imageRoutes from './routes/imageRoutes';
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.use(express.json());
 app.use('/api/events', eventRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/calendar', calendarRoutes);
+app.use('/api/images', imageRoutes);
 
 // Health check route
 app.get('/health', (req, res) => {
