@@ -1,8 +1,10 @@
+// src/services/googleCalendarService.ts
 import { google, calendar_v3 } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
+import { firestore } from '../config/firebase-admin';
 
 dotenv.config();
 
@@ -24,20 +26,15 @@ try {
   };
 }
 
-// Google Calendar API credentials
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/auth/google/callback';
-
 // Scopes for Google Calendar API
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
 // Create OAuth2 client
 const createOAuth2Client = (): OAuth2Client => {
   return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
+    credentials.client_id,
+    credentials.client_secret,
+    credentials.redirect_uris[0]
   );
 };
 
@@ -59,10 +56,50 @@ export const getTokens = async (code: string) => {
   return tokens;
 };
 
+// Helper to refresh tokens if needed
+export const refreshTokensIfNeeded = async (tokens: any, userId: string) => {
+  // Check if tokens are expired
+  if (tokens.expiry_date && tokens.expiry_date <= Date.now()) {
+    try {
+      const oauth2Client = createOAuth2Client();
+      oauth2Client.setCredentials({
+        refresh_token: tokens.refresh_token
+      });
+      
+      const { credentials } = await oauth2Client.refreshAccessToken();
+      
+      // Update tokens in Firestore
+      await firestore.collection('users').doc(userId).update({
+        'googleCalendar.accessToken': credentials.access_token,
+        'googleCalendar.tokenExpiry': new Date(credentials.expiry_date || Date.now() + 3600 * 1000),
+        'updatedAt': new Date()
+      });
+      
+      return {
+        access_token: credentials.access_token,
+        refresh_token: tokens.refresh_token,
+        expiry_date: Date.now() + (credentials.expiry_date || 3600) * 1000
+      };
+    } catch (error) {
+      console.error('Error refreshing access token:', error);
+      throw error;
+    }
+  }
+  
+  return tokens;
+};
+
 // Create calendar client with tokens
-const createCalendarClient = (tokens: any): calendar_v3.Calendar => {
+const createCalendarClient = async (tokens: any, userId?: string): Promise<calendar_v3.Calendar> => {
+  let updatedTokens = tokens;
+  
+  // Refresh tokens if needed and userId is provided
+  if (userId) {
+    updatedTokens = await refreshTokensIfNeeded(tokens, userId);
+  }
+  
   const oauth2Client = createOAuth2Client();
-  oauth2Client.setCredentials(tokens);
+  oauth2Client.setCredentials(updatedTokens);
   
   return google.calendar({ version: 'v3', auth: oauth2Client });
 };
@@ -73,23 +110,28 @@ export const addEventToCalendar = async (
   eventData: {
     title: string;
     description: string;
-    startTime: string;
-    endTime: string;
+    startTime: Date | string;
+    endTime: Date | string;
     location: string;
-  }
+  },
+  userId?: string
 ) => {
   try {
-    const calendar = createCalendarClient(tokens);
+    const calendar = await createCalendarClient(tokens, userId);
     
     const event = {
       summary: eventData.title,
       description: eventData.description,
       start: {
-        dateTime: eventData.startTime,
+        dateTime: typeof eventData.startTime === 'string' 
+          ? eventData.startTime 
+          : eventData.startTime.toISOString(),
         timeZone: 'UTC',
       },
       end: {
-        dateTime: eventData.endTime,
+        dateTime: typeof eventData.endTime === 'string' 
+          ? eventData.endTime 
+          : eventData.endTime.toISOString(),
         timeZone: 'UTC',
       },
       location: eventData.location,
@@ -108,9 +150,9 @@ export const addEventToCalendar = async (
 };
 
 // List user's calendar events
-export const listCalendarEvents = async (tokens: any) => {
+export const listCalendarEvents = async (tokens: any, userId?: string) => {
   try {
-    const calendar = createCalendarClient(tokens);
+    const calendar = await createCalendarClient(tokens, userId);
     
     const response = await calendar.events.list({
       calendarId: 'primary',
@@ -123,6 +165,21 @@ export const listCalendarEvents = async (tokens: any) => {
     return response.data.items;
   } catch (error) {
     console.error('Error listing calendar events:', error);
+    throw error;
+  }
+};
+
+// Store Google Calendar tokens in Firestore
+export const storeUserTokens = async (userId: string, tokens: any) => {
+  try {
+    await firestore.collection('users').doc(userId).update({
+      'googleCalendar.accessToken': tokens.access_token,
+      'googleCalendar.refreshToken': tokens.refresh_token,
+      'googleCalendar.tokenExpiry': new Date(Date.now() + (tokens.expires_in || 3600) * 1000),
+      'updatedAt': new Date()
+    });
+  } catch (error) {
+    console.error('Error storing user tokens:', error);
     throw error;
   }
 };
